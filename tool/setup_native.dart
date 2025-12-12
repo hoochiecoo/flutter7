@@ -1,7 +1,7 @@
 import 'dart:io';
 
 void main() {
-  print('🚀 Starting Native Setup (Debug Mode)...');
+  print('🚀 Starting Native Setup (Fixed Mode)...');
 
   final packagePath = 'android/app/src/main/kotlin/com/example/hybrid';
   final mainActivityPath = '$packagePath/MainActivity.kt';
@@ -11,7 +11,7 @@ void main() {
 
   Directory(packagePath).createSync(recursive: true);
 
-  // MainActivity с отловом ошибок
+  // MainActivity
   File(mainActivityPath).writeAsStringSync('''
 package com.example.hybrid
 
@@ -19,7 +19,6 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
-import android.widget.Toast
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.hybrid/nav"
@@ -34,8 +33,7 @@ class MainActivity: FlutterActivity() {
                     startActivity(intent)
                     result.success(null)
                 } catch (e: Exception) {
-                    // Возвращаем ошибку во Flutter, чтобы показать диалог
-                    result.error("NATIVE_ERR", e.message, e.stackTraceToString())
+                    result.error("NATIVE_ERR", e.message, null)
                 }
             } else {
                 result.notImplemented()
@@ -46,7 +44,7 @@ class MainActivity: FlutterActivity() {
 ''');
   print('✅ MainActivity.kt generated');
 
-  // NativeActivity
+  // NativeActivity - ИСПРАВЛЕНО: Текст в одну строку, чтобы не ломать компилятор
   File(nativeActivityPath).writeAsStringSync('''
 package com.example.hybrid
 
@@ -63,11 +61,11 @@ class NativeActivity : Activity() {
         val layout = LinearLayout(this)
         layout.orientation = LinearLayout.VERTICAL
         layout.gravity = Gravity.CENTER
-        layout.setBackgroundColor(Color.parseColor("#212121"))
+        layout.setBackgroundColor(Color.parseColor("#333333"))
 
         val text = TextView(this)
-        text.text = "SUCCESS!\nNative Activity"
-        text.textSize = 30f
+        text.text = "NATIVE ACTIVITY WORKS" 
+        text.textSize = 24f
         text.setTextColor(Color.GREEN)
         text.gravity = Gravity.CENTER
         layout.addView(text)
@@ -78,31 +76,27 @@ class NativeActivity : Activity() {
 ''');
   print('✅ NativeActivity.kt generated');
 
-  // МАНИФЕСТ: Используем </application> как якорь
+  // MANIFEST PATCHING
   final manifestFile = File(manifestPath);
   if (manifestFile.existsSync()) {
     var content = manifestFile.readAsStringSync();
-    
-    // Удаляем старые попытки (если были)
-    if (content.contains('NativeActivity')) {
-       print('⚠️ Manifest already has NativeActivity');
-    } else {
-      // Вставляем ПЕРЕД закрывающим тегом application
+    if (!content.contains('NativeActivity')) {
       if (content.contains('</application>')) {
+         // Вставляем строго перед закрывающим тегом
          content = content.replaceFirst(
             '</application>', 
-            '    <activity android:name=".NativeActivity" android:label="Native Screen" android:theme="@android:style/Theme.NoTitleBar" />\n    </application>'
+            '    <activity android:name=".NativeActivity" android:theme="@android:style/Theme.NoTitleBar" />\n    </application>'
          );
          manifestFile.writeAsStringSync(content);
-         print('✅ AndroidManifest.xml patched correctly (inside application tag)');
+         print('✅ AndroidManifest.xml patched');
       } else {
-         print('❌ ERROR: Could not find </application> tag in Manifest!');
+         print('❌ ERROR: </application> not found');
          exit(1);
       }
     }
   }
 
-  // Gradle
+  // GRADLE PATCHING
   final gradleFile = File(gradlePath);
   if (gradleFile.existsSync()) {
     var content = gradleFile.readAsStringSync();

@@ -1,5 +1,5 @@
-name: hybrid_debug_app
-description: Debuggable Flutter + Native Activity.
+name: hybrid_fix_app
+description: Hybrid App with Fixed Kotlin Generation.
 publish_to: 'none'
 version: 1.0.0+1
 
