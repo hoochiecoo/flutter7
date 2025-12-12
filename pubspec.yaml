@@ -1,5 +1,5 @@
-name: hybrid_clean_app
-description: Flutter + Native Activity (Clean Setup).
+name: hybrid_debug_app
+description: Debuggable Flutter + Native Activity.
 publish_to: 'none'
 version: 1.0.0+1
 

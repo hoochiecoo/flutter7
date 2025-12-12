@@ -1,19 +1,17 @@
 import 'dart:io';
 
 void main() {
-  print('🚀 Starting Native Setup...');
+  print('🚀 Starting Native Setup (Debug Mode)...');
 
-  // 1. Пути к файлам
   final packagePath = 'android/app/src/main/kotlin/com/example/hybrid';
   final mainActivityPath = '$packagePath/MainActivity.kt';
   final nativeActivityPath = '$packagePath/NativeActivity.kt';
   final manifestPath = 'android/app/src/main/AndroidManifest.xml';
   final gradlePath = 'android/app/build.gradle';
 
-  // 2. Создаем структуру папок (если flutter create ее не доделал или сделал иначе)
   Directory(packagePath).createSync(recursive: true);
 
-  // 3. Записываем MainActivity.kt
+  // MainActivity с отловом ошибок
   File(mainActivityPath).writeAsStringSync('''
 package com.example.hybrid
 
@@ -21,6 +19,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import android.widget.Toast
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.hybrid/nav"
@@ -30,9 +29,14 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler {
             call, result ->
             if (call.method == "openNativeScreen") {
-                val intent = Intent(this, NativeActivity::class.java)
-                startActivity(intent)
-                result.success(null)
+                try {
+                    val intent = Intent(this, NativeActivity::class.java)
+                    startActivity(intent)
+                    result.success(null)
+                } catch (e: Exception) {
+                    // Возвращаем ошибку во Flutter, чтобы показать диалог
+                    result.error("NATIVE_ERR", e.message, e.stackTraceToString())
+                }
             } else {
                 result.notImplemented()
             }
@@ -42,7 +46,7 @@ class MainActivity: FlutterActivity() {
 ''');
   print('✅ MainActivity.kt generated');
 
-  // 4. Записываем NativeActivity.kt
+  // NativeActivity
   File(nativeActivityPath).writeAsStringSync('''
 package com.example.hybrid
 
@@ -59,12 +63,13 @@ class NativeActivity : Activity() {
         val layout = LinearLayout(this)
         layout.orientation = LinearLayout.VERTICAL
         layout.gravity = Gravity.CENTER
-        layout.setBackgroundColor(Color.BLACK)
+        layout.setBackgroundColor(Color.parseColor("#212121"))
 
         val text = TextView(this)
-        text.text = "ЭТО НАТИВ (KOTLIN)"
+        text.text = "SUCCESS!\nNative Activity"
         text.textSize = 30f
         text.setTextColor(Color.GREEN)
+        text.gravity = Gravity.CENTER
         layout.addView(text)
         
         setContentView(layout)
@@ -73,29 +78,36 @@ class NativeActivity : Activity() {
 ''');
   print('✅ NativeActivity.kt generated');
 
-  // 5. Обновляем AndroidManifest.xml (Добавляем Activity)
+  // МАНИФЕСТ: Используем </application> как якорь
   final manifestFile = File(manifestPath);
   if (manifestFile.existsSync()) {
     var content = manifestFile.readAsStringSync();
-    if (!content.contains('NativeActivity')) {
-      // Вставляем новую активити после закрытия главной
-      content = content.replaceFirst(
-        '</activity>', 
-        '</activity>\n        <activity android:name=".NativeActivity" android:label="Native" />'
-      );
-      manifestFile.writeAsStringSync(content);
-      print('✅ AndroidManifest.xml patched');
+    
+    // Удаляем старые попытки (если были)
+    if (content.contains('NativeActivity')) {
+       print('⚠️ Manifest already has NativeActivity');
+    } else {
+      // Вставляем ПЕРЕД закрывающим тегом application
+      if (content.contains('</application>')) {
+         content = content.replaceFirst(
+            '</application>', 
+            '    <activity android:name=".NativeActivity" android:label="Native Screen" android:theme="@android:style/Theme.NoTitleBar" />\n    </application>'
+         );
+         manifestFile.writeAsStringSync(content);
+         print('✅ AndroidManifest.xml patched correctly (inside application tag)');
+      } else {
+         print('❌ ERROR: Could not find </application> tag in Manifest!');
+         exit(1);
+      }
     }
   }
 
-  // 6. Обновляем build.gradle (minSdkVersion)
+  // Gradle
   final gradleFile = File(gradlePath);
   if (gradleFile.existsSync()) {
     var content = gradleFile.readAsStringSync();
     content = content.replaceAll(RegExp(r'minSdkVersion .*'), 'minSdkVersion 21');
     gradleFile.writeAsStringSync(content);
-    print('✅ build.gradle patched (minSdk 21)');
+    print('✅ build.gradle patched');
   }
-
-  print('🎉 Native setup complete!');
 }
