@@ -1,0 +1,42 @@
+name: Build Clean Hybrid APK
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.19.0'
+          cache: true
+
+      # 1. Стандартная команда создания (восстанавливаем папки android/ios)
+      - name: Create Scaffolding
+        run: flutter create . --project-name=hybrid_clean_app --org com.example.hybrid
+
+      # 2. ЗАПУСК НАШЕГО СКРИПТА (Вся магия тут)
+      # Флаттер сам делает всю грязную работу по настройке файлов
+      - name: Setup Native Code
+        run: dart run tool/setup_native.dart
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-clean-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
